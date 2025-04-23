@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Predicción CO (LSTM) con TFJS</title>
+  <!-- Carga TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0/dist/tf.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; }
+    .box {
+      display: inline-block;
+      padding: 2rem;
+      border-radius: 1rem;
+      color: #fff;
+      font-size: 1.25rem;
+      margin-top: 1rem;
+    }
+    button { padding: 0.5rem 1rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Predicción de Monóxido de Carbono (CO)</h1>
+  <p>Basado en las últimas 24 horas</p>
+  <button onclick="runPrediction()">Cargar Predicción</button>
+  <div id="alerta" class="box" style="background: gray;">Esperando acción...</div>
+
+  <script>
+    // Reemplaza con los valores reales de tu scaler
+    const DATA_MIN = 0.0;  // ej. 0.0
+    const DATA_MAX = 3.5;  // ej. 30.4
+
+    // Reemplaza con tu arreglo de 24 lecturas de CO (en ppm)
+    const rawInputs = [VAL1, VAL2, VAL3, /* ... */, VAL24];
+
+    const normalize = x => (x - DATA_MIN) / (DATA_MAX - DATA_MIN);
+    const denormalize = x => x * (DATA_MAX - DATA_MIN) + DATA_MIN;
+
+    async function runPrediction() {
+      const alerta = document.getElementById('alerta');
+      alerta.textContent = 'Cargando modelo...';
+
+      // Carga el modelo desde GitHub Pages
+      const modelUrl = 'https://varomusic.github.io/lstm-co-dashboard/web_model/model.json';
+      const model = await tf.loadLayersModel(modelUrl);
+
+      alerta.textContent = 'Modelo cargado. Prediciendo...';
+
+      // Prepara el tensor [1,24,1]
+      const inputNorm = rawInputs.map(normalize);
+      const inputTensor = tf.tensor(inputNorm).reshape([1, 24, 1]);
+
+      // Realiza la predicción
+      const predTensor = model.predict(inputTensor);
+      const predNorm = (await predTensor.data())[0];
+      const pred = denormalize(predNorm);
+
+      // Determina color y mensaje AQI
+      let color, categoria, mensaje;
+      if (pred <= 4.4) {
+        color = 'green'; categoria = 'Buena'; mensaje = 'Aire limpio y seguro';
+      } else if (pred <= 9.4) {
+        color = 'yellow'; categoria = 'Moderada'; mensaje = 'Precaución para grupos sensibles';
+      } else if (pred <= 12.4) {
+        color = 'orange'; categoria = 'Poco saludable para grupos sensibles'; mensaje = 'Evita ejercicio intenso';
+      } else if (pred <= 15.4) {
+        color = 'red'; categoria = 'Poco saludable'; mensaje = 'Evita exposición prolongada';
+      } else {
+        color = 'purple'; categoria = 'Muy poco saludable'; mensaje = 'Permanece en interiores';
+      }
+
+      // Muestra el resultado
+      alerta.style.backgroundColor = color;
+      alerta.innerHTML = `CO: ${pred.toFixed(2)} ppm<br>${categoria}<br>${mensaje}`;
+    }
+  </script>
+</body>
+</html>
